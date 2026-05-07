@@ -14,6 +14,12 @@
 
 &nbsp;
 
+<p align="center">
+  <img src="./screenshot.png" alt="RBR theme — hero shot showing trio headings, syntax-highlighted code, callouts, table, tags, and Backlinks panel" width="100%"/>
+</p>
+
+&nbsp;
+
 ## About
 
 `rbr.obsidian` paints Obsidian with the [RBR color scheme](https://github.com/Amdhj22/rbr) — a **three-accent** palette: **kerb red** for what's active, **RB yellow** for what needs attention, **chequer white** for functions / methods. A deep navy base keeps the trio readable. See the upstream [`STYLE-GUIDE.md`](https://github.com/Amdhj22/rbr/blob/main/STYLE-GUIDE.md) for the full design rules.
