@@ -564,14 +564,24 @@ body.rbr-headings-trio .cm-header-6 {
 
   --bold-color:    var(--rbr-chequer-white);
   --bold-weight:   700;
-  --italic-color:  var(--rbr-paddock-green);
+  --italic-color:  var(--rbr-livery-blue-bright);
 
   --blockquote-border-color: var(--rbr-accent);
   --blockquote-background-color: rgba(var(--rbr-accent-rgb), 0.06);
-  --blockquote-color: var(--rbr-text);
+  --blockquote-color: var(--rbr-kerb-red-pure);
 
   --hr-color: var(--rbr-overlay-0);
   --hr-thickness: 2px;
+}
+
+/* Strikethrough — fade into subtext.
+   Obsidian has no dedicated variable for ~~text~~, so use direct selectors. */
+.markdown-rendered del,
+.markdown-rendered s,
+.markdown-preview-view del,
+.markdown-preview-view s,
+.cm-s-obsidian .cm-strikethrough {
+  color: var(--rbr-subtext-0);
 }
 
 /* ========================================================================
@@ -621,7 +631,24 @@ body.rbr-headings-trio .cm-header-6 {
 .cm-s-obsidian span.cm-error         { color: var(--rbr-kerb-red-bright); }
 .cm-s-obsidian span.cm-header        { color: var(--rbr-accent); }
 .cm-s-obsidian span.cm-hr            { color: var(--rbr-overlay-0); }
-.cm-s-obsidian span.cm-quote         { color: var(--rbr-paddock-green); }
+.cm-s-obsidian span.cm-quote         { color: var(--blockquote-color); }
+
+/* Live-preview / source-mode quote line — Obsidian wraps each quoted line
+   in .HyperMD-quote, which doesn't go through --blockquote-color by default.
+   Force it so Reading view and Live preview match. */
+.cm-s-obsidian .HyperMD-quote,
+.cm-s-obsidian .HyperMD-quote-1,
+.cm-s-obsidian .HyperMD-quote-2,
+.cm-s-obsidian .HyperMD-quote-3 {
+  color: var(--blockquote-color) !important;
+}
+
+/* Reading view enforcement — some plugins/snippets paint blockquote color
+   directly on the <blockquote> rather than letting --blockquote-color cascade */
+.markdown-rendered blockquote,
+.markdown-preview-view blockquote {
+  color: var(--blockquote-color) !important;
+}
 
 /* ========================================================================
    Tables
