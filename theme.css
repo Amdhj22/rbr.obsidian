@@ -640,17 +640,40 @@ body.rbr-headings-trio .cm-header-6 {
 
 /* ========================================================================
    Tags — small pill badges. Yellow because tags are a "look here" cue.
+   Foreground is forced to black for legibility against the yellow fill.
    ======================================================================== */
 .theme-dark,
 .theme-light {
-  --tag-color:              var(--rbr-base);
-  --tag-color-hover:        var(--rbr-base);
+  --tag-color:              #000000;
+  --tag-color-hover:        #000000;
   --tag-background:         var(--rbr-rb-yellow);
   --tag-background-hover:   var(--rbr-rb-pure);
   --tag-border-color:       transparent;
   --tag-border-color-hover: transparent;
   --tag-radius:             10px;
   --tag-weight:             600;
+}
+
+/* Direct selector enforcement — CodeMirror's hashtag spans inherit syntax
+   token rules (.cm-meta / .cm-tag) that ignore --tag-color. Force black
+   on the tag pill in reading view, live preview, and source mode. */
+.tag,
+a.tag,
+.cm-s-obsidian span.cm-hashtag,
+.cm-s-obsidian span.cm-hashtag-begin,
+.cm-s-obsidian span.cm-hashtag-end,
+.cm-s-obsidian span.cm-meta.cm-hashtag,
+.cm-s-obsidian span.cm-tag.cm-hashtag {
+  color: #000000 !important;
+  background-color: var(--rbr-rb-yellow) !important;
+  font-weight: 600 !important;
+}
+
+.tag:hover,
+a.tag:hover,
+.cm-s-obsidian span.cm-hashtag:hover {
+  color: #000000 !important;
+  background-color: var(--rbr-rb-pure) !important;
 }
 
 /* ========================================================================
