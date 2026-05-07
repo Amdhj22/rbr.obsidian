@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+._*
+.AppleDouble
+.LSOverride
+
+# Editors / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Obsidian local artifacts (in case the repo is ever opened as a vault for testing)
+.obsidian/workspace*
+.obsidian/cache
+
+# Logs / tmp
+*.log
+*.tmp
+.cache/
