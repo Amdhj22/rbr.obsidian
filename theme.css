@@ -22,6 +22,8 @@
  *   - Active tab indicator (top / bottom / fill)
  *   - Code font size slider
  *   - Highlight (==text==) intensity slider
+ *   - Auto hide toggles (tab bar / status bar / ribbon / vault profile)
+ *   - Card layout toggle + corner-radius / gap sliders
  * Without the plugin, defaults apply and nothing breaks.
  */
 
@@ -174,6 +176,78 @@ settings:
     min: 0.10
     max: 0.60
     step: 0.05
+
+  -
+    id: rbr-section-autohide
+    title: Auto hide
+    description: |
+      마우스를 올렸을 때만 보이도록 UI 요소를 숨긴다.
+      호버가 없는 모바일에서는 자동 비활성.
+    type: heading
+    level: 2
+    collapsed: true
+
+  -
+    id: rbr-autohide-tabs
+    title: Auto hide tab bar
+    description: 탭 헤더 바를 숨기고 상단/타이틀바에 호버하면 펼침.
+    type: class-toggle
+
+  -
+    id: rbr-autohide-statusbar
+    title: Auto hide status bar
+    description: 하단 상태바를 가는 띠로 줄이고 호버 시 펼침.
+    type: class-toggle
+
+  -
+    id: rbr-autohide-ribbon
+    title: Auto hide left ribbon
+    description: 좌측 리본 메뉴를 가는 띠로 줄이고 호버 시 펼침.
+    type: class-toggle
+
+  -
+    id: rbr-autohide-vault-profile
+    title: Auto hide vault profile
+    description: 좌측 사이드바 하단의 vault 프로필 영역 숨김. 사이드바 호버 시 펼침.
+    type: class-toggle
+
+  -
+    id: rbr-section-card
+    title: Card layout
+    description: |
+      워크스페이스 패널을 카드처럼 분리해서 표시.
+      여백 + 둥근 모서리 + 부드러운 그림자가 추가된다.
+    type: heading
+    level: 2
+    collapsed: true
+
+  -
+    id: rbr-card-layout
+    title: Enable card layout
+    description: 카드 레이아웃 켜기/끄기.
+    type: class-toggle
+
+  -
+    id: rbr-card-radius
+    title: Card corner radius
+    description: 카드 모서리 라운딩 (px).
+    type: variable-number-slider
+    default: 8
+    min: 0
+    max: 20
+    step: 1
+    format: px
+
+  -
+    id: rbr-card-gap
+    title: Card gap
+    description: 카드 사이 간격 (px).
+    type: variable-number-slider
+    default: 12
+    min: 0
+    max: 24
+    step: 1
+    format: px
 
 */
 
@@ -959,4 +1033,203 @@ body.rbr-tab-fill .workspace-tab-header.is-active::before {
 
 .metadata-property-value {
   color: var(--rbr-text);
+}
+
+/* ========================================================================
+   Auto hide — Style Settings class-toggles. Reduce UI chrome to a sliver
+   and reveal on hover. Mobile is excluded since it has no hover affordance.
+
+   Each toggle is independent — combine freely (e.g. ribbon + statusbar).
+   ======================================================================== */
+
+/* ---- Tab bar ----
+   Collapse every tab header strip (main + left/right sidebars) into a
+   slim 16px bar. Following Obsidian-Border's design: the strip itself
+   is the hover target — no pseudo-element hit zones, no overflow
+   overrides, no pointer-events juggling. Simpler = smoother.
+
+   Trade-off: the hover target is exactly the 16px strip (plus the
+   titlebar via the secondary trigger below). No "generous band"
+   above/below. In exchange, transitions feel snappy because the
+   browser isn't recomputing hit-testing over giant viewport-wide
+   pseudo-element overlays on every frame.
+
+   Synchronized expansion: hovering ANY strip OR the OS title bar
+   expands ALL strips together — main + left + right move in sync.
+   Implemented via body:has() so the shared ancestor toggles the
+   collective state.
+
+   The faint accent hairline at the bottom of the collapsed strip is
+   a visible "aim here" cue (otherwise a 16px transparent area is
+   easy to miss). */
+body:not(.is-mobile).rbr-autohide-tabs .workspace-tab-header-container {
+  height: 24px;
+  min-height: 24px;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(var(--rbr-accent-rgb), 0.35);
+  transition: height 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              min-height 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 200ms ease;
+}
+
+/* Inner button row fades — opacity on children so the wrapper's
+   hairline cue stays visible while the buttons are hidden. */
+body:not(.is-mobile).rbr-autohide-tabs .workspace-tab-header-container > * {
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+/* Synchronized expand — any one strip (or the titlebar) hovered = all open */
+body:not(.is-mobile).rbr-autohide-tabs:has(.workspace-tab-header-container:hover) .workspace-tab-header-container,
+body:not(.is-mobile).rbr-autohide-tabs:has(> .titlebar:hover) .workspace-tab-header-container {
+  height: var(--header-height, 36px);
+  min-height: var(--header-height, 36px);
+  border-bottom-color: transparent;
+}
+
+body:not(.is-mobile).rbr-autohide-tabs:has(.workspace-tab-header-container:hover) .workspace-tab-header-container > *,
+body:not(.is-mobile).rbr-autohide-tabs:has(> .titlebar:hover) .workspace-tab-header-container > * {
+  opacity: 1;
+  transition: opacity 200ms ease 40ms;
+}
+
+/* ---- Status bar ---- */
+body:not(.is-mobile).rbr-autohide-statusbar .status-bar {
+  height: 4px;
+  opacity: 0;
+  overflow: hidden;
+  transition: height 160ms ease, opacity 160ms ease;
+}
+
+body:not(.is-mobile).rbr-autohide-statusbar .status-bar:hover {
+  height: 24px;
+  opacity: 1;
+}
+
+/* ---- Left ribbon ----
+   Drive ribbon width via the --ribbon-width CSS variable so Obsidian's
+   flex layout reflows alongside (a direct `width:` would shrink the
+   ribbon visually but leave the column reserved).
+
+   For smooth motion we register --ribbon-width as a typed @property.
+   By default custom properties aren't transitionable — declaring the
+   syntax as <length> tells the engine to interpolate it numerically,
+   so changing the value over a `transition` produces a fluid slide
+   instead of an instant snap.
+
+   Easing: cubic-bezier(0.4, 0, 0.2, 1) is the Material "standard" curve
+   — slow start, snappy middle, gentle landing. Feels natural for this
+   kind of UI panel. Icons fade in slightly delayed so the ribbon has
+   already started widening when they appear. */
+@property --ribbon-width {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 44px;
+}
+
+body:not(.is-mobile).rbr-autohide-ribbon {
+  --ribbon-width: 6px;
+  transition: --ribbon-width 280ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body:not(.is-mobile).rbr-autohide-ribbon .workspace-ribbon.side-dock-ribbon.mod-left {
+  transition: width 280ms cubic-bezier(0.4, 0, 0.2, 1),
+              min-width 280ms cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 220ms ease;
+}
+
+/* On hover, restore the default Obsidian width (44px) so icons fit. */
+body:not(.is-mobile).rbr-autohide-ribbon .workspace-ribbon.side-dock-ribbon.mod-left:hover {
+  --ribbon-width: 44px;
+}
+
+body:not(.is-mobile).rbr-autohide-ribbon .workspace-ribbon.side-dock-ribbon.mod-left > * {
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+body:not(.is-mobile).rbr-autohide-ribbon .workspace-ribbon.side-dock-ribbon.mod-left:hover > * {
+  opacity: 1;
+  transition: opacity 220ms ease 80ms;
+}
+
+/* ---- Vault profile ----
+   Hide the vault-name footer in the left sidebar. Reveal when the sidebar
+   pane itself is hovered (the bar is too thin to land on directly). */
+body:not(.is-mobile).rbr-autohide-vault-profile .workspace-sidedock-vault-profile {
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+  padding-top: 0;
+  padding-bottom: 0;
+  transition: height 160ms ease, opacity 160ms ease, padding 160ms ease;
+}
+
+body:not(.is-mobile).rbr-autohide-vault-profile .workspace-split.mod-left-split:hover .workspace-sidedock-vault-profile,
+body:not(.is-mobile).rbr-autohide-vault-profile .workspace-sidedock-vault-profile:hover {
+  height: auto;
+  opacity: 1;
+  padding-top: var(--size-4-2, 8px);
+  padding-bottom: var(--size-4-2, 8px);
+}
+
+/* ========================================================================
+   Card layout — give every workspace pane card-like separation:
+   gaps between splits, rounded corners, and a soft shadow on each tab
+   container. The shadow layers a 1px border on top of a subtle drop
+   shadow for depth without harshness.
+
+   Sliders (--rbr-card-radius, --rbr-card-gap) drive the metrics so users
+   can dial it from "barely there" to "tile UI" without editing CSS.
+   ======================================================================== */
+
+/* Gap between vertically stacked splits (panes side-by-side) */
+body:not(.is-mobile).rbr-card-layout .workspace-split.mod-vertical {
+  gap: var(--rbr-card-gap, 12px);
+}
+
+/* Sidedock margins so cards don't touch the ribbon or right sidebar */
+body:not(.is-mobile).rbr-card-layout .workspace.is-left-sidedock-open .workspace-split.mod-horizontal.mod-left-split {
+  margin-right: var(--rbr-card-gap, 12px);
+}
+
+body:not(.is-mobile).rbr-card-layout .workspace.is-right-sidedock-open .workspace-split.mod-horizontal.mod-right-split {
+  margin-left: var(--rbr-card-gap, 12px);
+}
+
+/* The card itself — rounded + shadowed. overflow:hidden clips content
+   to the radius; the parent .workspace-tabs / .workspace-split must stay
+   overflow:visible so the drop shadow isn't cut off. */
+body:not(.is-mobile).rbr-card-layout .workspace-tab-container {
+  border-radius: var(--rbr-card-radius, 8px) !important;
+  overflow: hidden !important;
+  box-shadow:
+    0 0 0 1px var(--rbr-surface-1),
+    0 4px 14px rgba(0, 0, 0, 0.28);
+}
+
+body:not(.is-mobile).rbr-card-layout .workspace-tabs,
+body:not(.is-mobile).rbr-card-layout .workspace-split {
+  overflow: visible !important;
+}
+
+/* Tab strip blends into the canvas instead of looking like a chrome strip
+   on top of the card */
+body:not(.is-mobile).rbr-card-layout .workspace-tabs,
+body:not(.is-mobile).rbr-card-layout .workspace-tab-header-container {
+  background-color: transparent !important;
+}
+
+/* The default ::before drop-shadow line under the title bar is meant for
+   the flat layout — hide it once cards take over that role */
+body:not(.is-mobile).rbr-card-layout .workspace::before {
+  display: none;
+}
+
+/* Active tab card — the active leaf gets a hint of accent on the border
+   so it's still distinguishable when every pane has a card outline */
+body:not(.is-mobile).rbr-card-layout .workspace-tabs.mod-active .workspace-tab-container {
+  box-shadow:
+    0 0 0 1px rgba(var(--rbr-accent-rgb), 0.45),
+    0 4px 14px rgba(0, 0, 0, 0.32);
 }
