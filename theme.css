@@ -212,6 +212,20 @@ settings:
     type: class-toggle
 
   -
+    id: rbr-autohide-delay
+    title: Hover delay before expanding
+    description: |
+      호버 후 펼쳐지기까지 대기 시간 (ms).
+      커서가 잠깐 지나가는 것만으로 깜빡이지 않게 하는 hover-intent 지연.
+      0 = 즉시 펼침, 200 = 짧은 의도 확인, 400+ = 의도적으로 머무를 때만.
+    type: variable-number-slider
+    default: 200
+    min: 0
+    max: 600
+    step: 50
+    format: ms
+
+  -
     id: rbr-section-card
     title: Card layout
     description: |
@@ -1063,34 +1077,84 @@ body.rbr-tab-fill .workspace-tab-header.is-active::before {
    a visible "aim here" cue (otherwise a 16px transparent area is
    easy to miss). */
 body:not(.is-mobile).rbr-autohide-tabs .workspace-tab-header-container {
-  height: 24px;
-  min-height: 24px;
-  overflow: hidden;
+  position: relative;
+  height: 12px;
+  min-height: 12px;
+  overflow: visible;
   border-bottom: 1px solid rgba(var(--rbr-accent-rgb), 0.35);
-  transition: height 200ms cubic-bezier(0.4, 0, 0.2, 1),
-              min-height 200ms cubic-bezier(0.4, 0, 0.2, 1),
-              border-color 200ms ease;
+  /* Only transition height + min-height. border-color is left to
+     change instantly (the hairline disappears on expand) — eliminating
+     it from the transition list shaves work off every animation frame. */
+  transition: height 160ms cubic-bezier(0.4, 0, 0.2, 1),
+              min-height 160ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition-delay: 0ms;  /* collapse direction: snap back immediately */
 }
 
-/* Inner button row fades — opacity on children so the wrapper's
-   hairline cue stays visible while the buttons are hidden. */
+/* Invisible 12px hover-extension above the strip — keeps the effective
+   hit zone at ~24px tall while the strip itself is visually only 12px.
+
+   left/right -100vw stretches the band the full window width so the
+   hit zone is a continuous strip across the entire top bar (covers
+   gaps between panels, ribbon-column space, and the far-right edge).
+   The lateral extension is gated by ancestor overflow rules — see the
+   override block below.
+
+   No z-index, no pointer-events tricks, no dynamic resize — just one
+   thin static band per strip. The three strips' bands overlap
+   harmlessly at the top of the window; any one firing :hover satisfies
+   the body:has() rule below. */
+body:not(.is-mobile).rbr-autohide-tabs .workspace-tab-header-container::before {
+  content: "";
+  position: absolute;
+  left: -100vw;
+  right: -100vw;
+  top: -12px;
+  height: 12px;
+}
+
+/* Allow the pseudo to extend outside its panel — both vertically (above
+   the strip's parent) and laterally (across panel dividers). Two
+   parents need overflow:visible: .workspace-tabs for vertical, and
+   .workspace-split for lateral. Card-layout already opens these same
+   containers for its shadow rendering, so the rules combine cleanly. */
+body:not(.is-mobile).rbr-autohide-tabs .workspace-tabs.mod-top,
+body:not(.is-mobile).rbr-autohide-tabs .workspace-split {
+  overflow: visible;
+}
+
+/* Inner button row fades. pointer-events:none is needed because
+   overflow:visible lets the (full-height) buttons render past the
+   12px clip line — without it, hovers on those overflowing buttons
+   would fire phantom expands. */
 body:not(.is-mobile).rbr-autohide-tabs .workspace-tab-header-container > * {
   opacity: 0;
-  transition: opacity 180ms ease;
+  pointer-events: none;
+  transition: opacity 160ms ease 0ms;
 }
 
-/* Synchronized expand — any one strip (or the titlebar) hovered = all open */
-body:not(.is-mobile).rbr-autohide-tabs:has(.workspace-tab-header-container:hover) .workspace-tab-header-container,
-body:not(.is-mobile).rbr-autohide-tabs:has(> .titlebar:hover) .workspace-tab-header-container {
+/* Synchronized expand — hovering ANY one strip opens all. The single
+   body:has() rule below is the only mousemove-sensitive selector we
+   need: we drop the previous secondary `:has(> .titlebar:hover)` rule
+   to halve the cost of `:has()` re-evaluation, and keep the strip
+   itself as the sole trigger.
+
+   The transition-delay is the hover-intent gate: when the cursor first
+   enters the hover state, transitions wait --rbr-autohide-delay before
+   kicking in. If the cursor leaves before that window elapses, the
+   transitions never start — no flicker from drive-by hovers. On exit,
+   the default rules above apply (0ms delay), so collapse happens
+   immediately. */
+body:not(.is-mobile).rbr-autohide-tabs:has(.workspace-tab-header-container:hover) .workspace-tab-header-container {
   height: var(--header-height, 36px);
   min-height: var(--header-height, 36px);
   border-bottom-color: transparent;
+  transition-delay: var(--rbr-autohide-delay, 200ms);
 }
 
-body:not(.is-mobile).rbr-autohide-tabs:has(.workspace-tab-header-container:hover) .workspace-tab-header-container > *,
-body:not(.is-mobile).rbr-autohide-tabs:has(> .titlebar:hover) .workspace-tab-header-container > * {
+body:not(.is-mobile).rbr-autohide-tabs:has(.workspace-tab-header-container:hover) .workspace-tab-header-container > * {
   opacity: 1;
-  transition: opacity 200ms ease 40ms;
+  pointer-events: auto;
+  transition: opacity 160ms ease calc(var(--rbr-autohide-delay, 200ms) + 30ms);
 }
 
 /* ---- Status bar ---- */
@@ -1099,11 +1163,13 @@ body:not(.is-mobile).rbr-autohide-statusbar .status-bar {
   opacity: 0;
   overflow: hidden;
   transition: height 160ms ease, opacity 160ms ease;
+  transition-delay: 0ms;
 }
 
 body:not(.is-mobile).rbr-autohide-statusbar .status-bar:hover {
   height: 24px;
   opacity: 1;
+  transition-delay: var(--rbr-autohide-delay, 200ms);
 }
 
 /* ---- Left ribbon ----
@@ -1136,21 +1202,25 @@ body:not(.is-mobile).rbr-autohide-ribbon .workspace-ribbon.side-dock-ribbon.mod-
   transition: width 280ms cubic-bezier(0.4, 0, 0.2, 1),
               min-width 280ms cubic-bezier(0.4, 0, 0.2, 1),
               background-color 220ms ease;
+  transition-delay: 0ms;
 }
 
-/* On hover, restore the default Obsidian width (44px) so icons fit. */
+/* On hover, restore the default Obsidian width (44px) so icons fit.
+   The hover-intent delay below means a drive-by hover doesn't trigger
+   the expand — only intentional dwelling does. */
 body:not(.is-mobile).rbr-autohide-ribbon .workspace-ribbon.side-dock-ribbon.mod-left:hover {
   --ribbon-width: 44px;
+  transition-delay: var(--rbr-autohide-delay, 200ms);
 }
 
 body:not(.is-mobile).rbr-autohide-ribbon .workspace-ribbon.side-dock-ribbon.mod-left > * {
   opacity: 0;
-  transition: opacity 200ms ease;
+  transition: opacity 200ms ease 0ms;
 }
 
 body:not(.is-mobile).rbr-autohide-ribbon .workspace-ribbon.side-dock-ribbon.mod-left:hover > * {
   opacity: 1;
-  transition: opacity 220ms ease 80ms;
+  transition: opacity 220ms ease calc(var(--rbr-autohide-delay, 200ms) + 80ms);
 }
 
 /* ---- Vault profile ----
@@ -1163,6 +1233,7 @@ body:not(.is-mobile).rbr-autohide-vault-profile .workspace-sidedock-vault-profil
   padding-top: 0;
   padding-bottom: 0;
   transition: height 160ms ease, opacity 160ms ease, padding 160ms ease;
+  transition-delay: 0ms;
 }
 
 body:not(.is-mobile).rbr-autohide-vault-profile .workspace-split.mod-left-split:hover .workspace-sidedock-vault-profile,
@@ -1171,6 +1242,7 @@ body:not(.is-mobile).rbr-autohide-vault-profile .workspace-sidedock-vault-profil
   opacity: 1;
   padding-top: var(--size-4-2, 8px);
   padding-bottom: var(--size-4-2, 8px);
+  transition-delay: var(--rbr-autohide-delay, 200ms);
 }
 
 /* ========================================================================
